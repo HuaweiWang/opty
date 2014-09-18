@@ -26,19 +26,20 @@ _cython_template = """\
 import numpy as np
 cimport numpy as np
 cimport cython
+from cython.parallel cimport prange
 
-cdef extern from "{file_prefix}_h.h":
+cdef extern from "{file_prefix}_h.h" nogil:
     void {routine_name}(double matrix[{matrix_output_size}], {input_args})
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def {routine_name}_loop(np.ndarray[np.double_t, ndim=2] matrix, {numpy_typed_input_args}):
 
-    cdef int n = matrix.shape[0]
+    cdef:
+        int n = matrix.shape[0]
+        int i
 
-    cdef int i
-
-    for i in range(n):
+    for i in prange(n, nogil=True):
         {routine_name}(&matrix[i, 0], {indexed_input_args})
 
     return matrix.reshape(n, {num_rows}, {num_cols})
@@ -53,7 +54,8 @@ from Cython.Build import cythonize
 extension = Extension(name="{file_prefix}",
                       sources=["{file_prefix}.pyx",
                                "{file_prefix}_c.c"],
-                      #extra_compile_args=["-ffast-math"],
+                      extra_compile_args=["-fopenmp"],
+                      extra_link_args=["-fopenmp"],
                       include_dirs=[numpy.get_include()])
 
 setup(name="{routine_name}",
